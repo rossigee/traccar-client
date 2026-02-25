@@ -148,7 +148,7 @@ class Preferences {
                 : null,
       ),
       http: bg.HttpConfig(
-        autoSync: false,
+        autoSync: true,
         url: _formatUrl(instance.getString(url)),
         params: {'device_id': instance.getString(id)},
       ),

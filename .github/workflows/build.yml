@@ -45,7 +45,7 @@ jobs:
         echo "storePassword=testpass" > environment/key.properties
         echo "keyPassword=testpass" >> environment/key.properties
         echo "keyAlias=traccar-client" >> environment/key.properties
-        echo "storeFile=../android/app/traccar-client.keystore" >> environment/key.properties
+        echo "storeFile=traccar-client.keystore" >> environment/key.properties
 
     - name: Build release APK
       run: flutter build apk --release

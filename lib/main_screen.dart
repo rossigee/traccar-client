@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,7 +23,6 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-  int _homeTabRebuildKey = 0;
 
   Future<void> _onDestinationSelected(int index) async {
     if (index == 2) {
@@ -33,7 +34,7 @@ class _MainScreenState extends State<MainScreen> {
         setState(() => _selectedIndex = index);
       }
       if (index == 0) {
-        setState(() => _homeTabRebuildKey++);
+        // Refresh home tab by reloading last known location
       }
     }
   }
@@ -44,7 +45,6 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
-        key: ValueKey(_homeTabRebuildKey),
         children: const [_HomeTab(), StatusScreen(), SettingsScreen()],
       ),
       bottomNavigationBar: NavigationBar(
@@ -73,7 +73,7 @@ class _MainScreenState extends State<MainScreen> {
 }
 
 class _HomeTab extends StatefulWidget {
-  const _HomeTab();
+  const _HomeTab({super.key});
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -86,11 +86,73 @@ class _HomeTabState extends State<_HomeTab> {
   double? _longitude;
   double? _speed;
   double? _heading;
+  bool? _syncSuccess;
+  int? _syncStatus;
+  bool _syncInFlight = false;
+  DateTime? _lastSyncTime;
+  DateTime? _syncStartedAt;
+  Timer? _refreshTimer;
+
+  // Stored callback references so they can be individually removed in dispose().
+  void Function(bool)? _onEnabledChange;
+  void Function(bg.Location)? _onMotionChange;
+  void Function(bg.Location)? _onLocation;
+  void Function(bg.HttpEvent)? _onHttp;
 
   @override
   void initState() {
     super.initState();
+    _loadLastKnownLocation();
     _initState();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        // Check for sync timeout
+        if (_syncInFlight && _syncStartedAt != null) {
+          final elapsed = DateTime.now().difference(_syncStartedAt!);
+          if (elapsed.inSeconds > 30) {
+            setState(() {
+              _syncInFlight = false;
+              _syncSuccess = false;
+              _syncStatus = 0;
+              _lastSyncTime = DateTime.now();
+            });
+            _syncStartedAt = null;
+          }
+        }
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    if (_onEnabledChange != null) {
+      bg.BackgroundGeolocation.removeListener(_onEnabledChange!);
+    }
+    if (_onMotionChange != null) {
+      bg.BackgroundGeolocation.removeListener(_onMotionChange!);
+    }
+    if (_onLocation != null) {
+      bg.BackgroundGeolocation.removeListener(_onLocation!);
+    }
+    if (_onHttp != null) {
+      bg.BackgroundGeolocation.removeListener(_onHttp!);
+    }
+    super.dispose();
+  }
+
+  void _loadLastKnownLocation() {
+    final lastLat = Preferences.instance.getDouble(Preferences.lastLatitude);
+    final lastLon = Preferences.instance.getDouble(Preferences.lastLongitude);
+    final lastSync = Preferences.instance.getString('lastSyncTime');
+    if (lastLat != null && lastLon != null) {
+      _latitude = lastLat;
+      _longitude = lastLon;
+    }
+    if (lastSync != null) {
+      _lastSyncTime = DateTime.tryParse(lastSync);
+    }
   }
 
   void _initState() async {
@@ -100,22 +162,53 @@ class _HomeTabState extends State<_HomeTab> {
       _trackingEnabled = state.enabled;
       _isMoving = state.isMoving;
     });
-    bg.BackgroundGeolocation.onEnabledChange((bool enabled) {
+
+    _onEnabledChange = (bool enabled) {
       if (mounted) setState(() => _trackingEnabled = enabled);
-    });
-    bg.BackgroundGeolocation.onMotionChange((bg.Location location) {
+    };
+    _onMotionChange = (bg.Location location) {
       if (mounted) setState(() => _isMoving = location.isMoving);
-    });
-    bg.BackgroundGeolocation.onLocation((bg.Location location) {
+    };
+    _onLocation = (bg.Location location) {
       if (mounted) {
         setState(() {
           _latitude = location.coords.latitude;
           _longitude = location.coords.longitude;
           _speed = location.coords.speed;
           _heading = location.coords.heading;
+          _syncInFlight = true;
+          _syncStartedAt = DateTime.now();
         });
+        Preferences.instance.setDouble(
+          Preferences.lastLatitude,
+          location.coords.latitude,
+        );
+        Preferences.instance.setDouble(
+          Preferences.lastLongitude,
+          location.coords.longitude,
+        );
       }
-    });
+    };
+    _onHttp = (bg.HttpEvent event) {
+      if (mounted) {
+        setState(() {
+          _syncSuccess = event.success;
+          _syncStatus = event.status;
+          _syncInFlight = false;
+          _syncStartedAt = null;
+          _lastSyncTime = DateTime.now();
+        });
+        Preferences.instance.setString(
+          'lastSyncTime',
+          _lastSyncTime!.toIso8601String(),
+        );
+      }
+    };
+
+    bg.BackgroundGeolocation.onEnabledChange(_onEnabledChange!);
+    bg.BackgroundGeolocation.onMotionChange(_onMotionChange!);
+    bg.BackgroundGeolocation.onLocation(_onLocation!);
+    bg.BackgroundGeolocation.onHttp(_onHttp!);
   }
 
   Future<void> _checkBatteryOptimizations(BuildContext context) async {
@@ -154,8 +247,6 @@ class _HomeTabState extends State<_HomeTab> {
     if (await PasswordService.authenticate(context) && mounted) {
       if (value) {
         try {
-          final firebaseEnabled =
-              Preferences.instance.getBool(Preferences.firebase) ?? true;
           if (firebaseEnabled) {
             FirebaseCrashlytics.instance.log('tracking_toggle_start');
           }
@@ -189,12 +280,10 @@ class _HomeTabState extends State<_HomeTab> {
           );
         }
       } else {
-        final firebaseEnabled =
-            Preferences.instance.getBool(Preferences.firebase) ?? true;
         if (firebaseEnabled) {
           FirebaseCrashlytics.instance.log('tracking_toggle_stop');
         }
-        bg.BackgroundGeolocation.stop();
+        await bg.BackgroundGeolocation.stop();
       }
     }
   }
@@ -223,6 +312,53 @@ class _HomeTabState extends State<_HomeTab> {
     return directions[index];
   }
 
+  String _getSyncStatus() {
+    final intervalSeconds = Preferences.instance.getInt(Preferences.interval) ?? 300;
+
+    if (_syncInFlight && _syncStartedAt != null) {
+      final elapsed = DateTime.now().difference(_syncStartedAt!);
+      return 'Sending... (${30 - elapsed.inSeconds}s)';
+    }
+
+    final t = _lastSyncTime;
+    if (t == null) return 'Never synced - Next: ~${intervalSeconds}s';
+
+    final elapsed = DateTime.now().difference(t);
+    final ago = _formatDuration(elapsed);
+    final nextIn = intervalSeconds - elapsed.inSeconds;
+
+    if (_syncSuccess == true) return 'OK - $ago | Next: ~${nextIn}s';
+    if (_syncSuccess == false && _syncStatus == 0)
+      return 'TIMEOUT - $ago | Next: ~${nextIn}s';
+    if (_syncSuccess == false)
+      return 'FAILED ($_syncStatus) - $ago | Next: ~${nextIn}s';
+    return 'Unknown - $ago | Next: ~${nextIn}s';
+  }
+
+    final t = _lastSyncTime;
+    if (t == null) return 'Never synced - Next in ~${intervalSeconds}s';
+
+    final elapsed = DateTime.now().difference(t);
+    final ago = _formatDuration(elapsed);
+    final nextIn = intervalSeconds - elapsed.inSeconds;
+
+    if (_syncSuccess == true) return 'Last: OK - $ago | Next: ~${nextIn}s';
+    if (_syncSuccess == false && _syncStatus == 0)
+      return 'Last: TIMEOUT - $ago | Next: ~${nextIn}s';
+    if (_syncSuccess == false)
+      return 'Last: FAILED ($_syncStatus) - $ago | Next: ~${nextIn}s';
+    return 'Last: Unknown - $ago | Next: ~${nextIn}s';
+  }
+
+
+
+  String _formatDuration(Duration d) {
+    if (d.inSeconds < 60) return '${d.inSeconds}s ago';
+    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
+    if (d.inHours < 24) return '${d.inHours}h ago';
+    return '${d.inDays}d ago';
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -238,7 +374,7 @@ class _HomeTabState extends State<_HomeTab> {
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             color: _heroColor(cs),
-            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -249,16 +385,16 @@ class _HomeTabState extends State<_HomeTab> {
                         ? Icons.satellite_alt
                         : Icons.satellite_alt_outlined,
                     key: ValueKey(_trackingEnabled),
-                    size: 64,
+                    size: 32,
                     color: contentColor,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text(
                   _heroStatusText(),
-                  style: tt.titleLarge?.copyWith(color: contentColor),
+                  style: tt.titleMedium?.copyWith(color: contentColor),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 Switch(value: _trackingEnabled, onChanged: _toggleTracking),
               ],
             ),
@@ -316,34 +452,34 @@ class _HomeTabState extends State<_HomeTab> {
                                   '${_heading!.toStringAsFixed(0)}° ${_getHeadingDirection(_heading!)}',
                             ),
                           ],
+                          if (_syncInFlight || _lastSyncTime != null) ...[
+                            const SizedBox(height: 12),
+                            _InfoRow(
+                              label: 'Server Sync',
+                              value: _getSyncStatus(),
+                            ),
+                          ],
+                          ],
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.tonal(
-                          onPressed: () async {
-                            try {
-                              await bg.BackgroundGeolocation.getCurrentPosition(
-                                samples: 1,
-                                persist: true,
-                                extras: {'manual': true},
-                              );
-                            } on PlatformException catch (error) {
-                              messengerKey.currentState?.showSnackBar(
-                                SnackBar(
-                                  content: Text(error.message ?? error.code),
-                                ),
-                              );
-                            }
-                          },
-                          child: Text(l10n.locationButton),
-                        ),
-                      ),
-                    ],
+                  FilledButton.tonal(
+                    onPressed: () async {
+                      try {
+                        await bg.BackgroundGeolocation.getCurrentPosition(
+                          samples: 1,
+                          persist: true,
+                          extras: {'manual': true},
+                        );
+                      } on PlatformException catch (error) {
+                        messengerKey.currentState?.showSnackBar(
+                          SnackBar(content: Text(error.message ?? error.code)),
+                        );
+                      }
+                    },
+                    child: Text(l10n.locationButton),
                   ),
                 ],
               ),

@@ -18,12 +18,13 @@ import 'preferences.dart';
 import 'configuration_service.dart';
 
 final messengerKey = GlobalKey<ScaffoldMessengerState>();
+bool firebaseEnabled = true;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Preferences.init();
-  final firebaseEnabled =
-      Preferences.instance.getBool(Preferences.firebase) ?? true;
+  firebaseEnabled = Preferences.instance.getBool(Preferences.firebase) ?? true;
+
   if (firebaseEnabled) {
     await Firebase.initializeApp();
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
@@ -43,7 +44,7 @@ class MainApp extends StatefulWidget {
 }
 
 class _MainAppState extends State<MainApp> {
-  RateMyApp rateMyApp = RateMyApp(minDays: 0, minLaunches: 0);
+  RateMyApp rateMyApp = RateMyApp(minDays: 7, minLaunches: 5);
 
   @override
   void initState() {

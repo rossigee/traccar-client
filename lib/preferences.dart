@@ -68,6 +68,7 @@ class Preferences {
           lastLatitude,
           lastLongitude,
           lastHeading,
+          'lastSyncTime',
           'device_id_preference',
           'server_url_preference',
           'accuracy_preference',
@@ -179,6 +180,7 @@ class Preferences {
         batchSync: false,
         url: _formatUrl(instance.getString(url)),
         params: {'device_id': instance.getString(id)},
+        timeout: 30,
       ),
       logger: const bg.LoggerConfig(
         logLevel: bg.LogLevel.verbose,

@@ -8,7 +8,7 @@ import 'package:flutter_background_geolocation/flutter_background_geolocation.da
     as bg;
 
 import 'l10n/app_localizations.dart';
-import 'preferences.dart';
+import 'package:traccar_client/main.dart' show firebaseEnabled;
 
 class QuickActionsInitializer extends StatefulWidget {
   const QuickActionsInitializer({super.key});
@@ -25,8 +25,6 @@ class _QuickActionsInitializerState extends State<QuickActionsInitializer> {
   void initState() {
     super.initState();
     quickActions.initialize((shortcutType) async {
-      final firebaseEnabled =
-          Preferences.instance.getBool(Preferences.firebase) ?? true;
       if (firebaseEnabled) {
         FirebaseCrashlytics.instance.log('quick_action: $shortcutType');
       }

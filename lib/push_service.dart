@@ -7,13 +7,11 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
     as bg;
 import 'package:traccar_client/password_service.dart';
-
-import 'preferences.dart';
+import 'package:traccar_client/preferences.dart';
+import 'package:traccar_client/main.dart' show firebaseEnabled;
 
 class PushService {
   static Future<void> init() async {
-    final firebaseEnabled =
-        Preferences.instance.getBool(Preferences.firebase) ?? true;
     if (!firebaseEnabled) return;
     await FirebaseMessaging.instance.requestPermission();
     FirebaseMessaging.onBackgroundMessage(pushServiceBackgroundHandler);
@@ -76,9 +74,9 @@ class PushService {
 @pragma('vm:entry-point')
 Future<void> pushServiceBackgroundHandler(RemoteMessage message) async {
   await Preferences.init();
-  final firebaseEnabled =
+  final handlerFirebaseEnabled =
       Preferences.instance.getBool(Preferences.firebase) ?? true;
-  if (!firebaseEnabled) return;
+  if (!handlerFirebaseEnabled) return;
   await Firebase.initializeApp();
   await bg.BackgroundGeolocation.ready(Preferences.geolocationConfig());
   FirebaseCrashlytics.instance.log('push_background_handler');

@@ -44,6 +44,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Firebase config files — add your own to enable Firebase (see build.gradle.kts)
+/android/app/google-services.json
+/ios/Runner/GoogleService-Info.plist
+
 # Flutter gen-l10n outputs
 lib/l10n/app_localizations.dart
 lib/l10n/app_localizations_*.dart

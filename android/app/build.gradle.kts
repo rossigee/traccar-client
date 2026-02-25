@@ -3,20 +3,26 @@ import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
-    // START: FlutterFire Configuration
-    id("com.google.gms.google-services")
-    id("com.google.firebase.crashlytics")
-    // END: FlutterFire Configuration
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// START: FlutterFire Configuration
+// Apply Firebase plugins only when google-services.json is present.
+// To enable Firebase: add your own google-services.json to android/app/ and
+// GoogleService-Info.plist to ios/Runner/ (both are gitignored).
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+}
+// END: FlutterFire Configuration
+
 val backgroundGeolocation = project(":flutter_background_geolocation")
 apply { from("${backgroundGeolocation.projectDir}/background_geolocation.gradle") }
 
 val keystoreProperties = Properties()
-val keystorePropertiesFile = rootProject.file("key.properties")
+val keystorePropertiesFile = rootProject.file("../environment/key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }

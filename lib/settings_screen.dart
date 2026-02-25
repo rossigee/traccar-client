@@ -26,7 +26,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool advanced = false;
 
   String _schedulePreview() {
-    final entry = Preferences.instance.getString(Preferences.scheduleEntry)?.trim();
+    final entry = Preferences.instance
+        .getString(Preferences.scheduleEntry)
+        ?.trim();
     if (entry == null || entry.isEmpty) {
       return AppLocalizations.of(context)!.scheduleUnsetLabel;
     }
@@ -35,7 +37,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _editScheduleEntry() async {
     final controller = TextEditingController(
-      text: Preferences.instance.getString(Preferences.scheduleEntry) ?? _defaultScheduleEntry,
+      text:
+          Preferences.instance.getString(Preferences.scheduleEntry) ??
+          _defaultScheduleEntry,
     );
     final result = await showDialog<String>(
       context: context,
@@ -66,9 +70,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (result != null) {
       final trimmed = result.trim();
       if (trimmed.isEmpty) {
-        messengerKey.currentState?.showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.invalidValue)),
-        );
+        if (mounted) {
+          messengerKey.currentState?.showSnackBar(
+            SnackBar(content: Text(AppLocalizations.of(context)!.invalidValue)),
+          );
+        }
         return;
       }
       await Preferences.instance.setString(Preferences.scheduleEntry, trimmed);
@@ -81,7 +87,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (value) {
       final entry = Preferences.instance.getString(Preferences.scheduleEntry);
       if (entry == null || entry.trim().isEmpty) {
-        await Preferences.instance.setString(Preferences.scheduleEntry, _defaultScheduleEntry);
+        await Preferences.instance.setString(
+          Preferences.scheduleEntry,
+          _defaultScheduleEntry,
+        );
       }
     } else {
       await Preferences.instance.remove(Preferences.scheduleEntry);
@@ -103,37 +112,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _editSetting(String title, String key, bool isInt) async {
-    final initialValue =
-        isInt
-            ? Preferences.instance.getInt(key)?.toString() ?? '0'
-            : Preferences.instance.getString(key) ?? '';
+    final initialValue = isInt
+        ? Preferences.instance.getInt(key)?.toString() ?? '0'
+        : Preferences.instance.getString(key) ?? '';
 
     final controller = TextEditingController(text: initialValue);
     final errorMessage = AppLocalizations.of(context)!.invalidValue;
 
     final result = await showDialog<String>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            scrollable: true,
-            title: Text(title),
-            content: TextField(
-              controller: controller,
-              keyboardType: isInt ? TextInputType.number : TextInputType.text,
-              inputFormatters:
-                  isInt ? [FilteringTextInputFormatter.digitsOnly] : [],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(AppLocalizations.of(context)!.cancelButton),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, controller.text),
-                child: Text(AppLocalizations.of(context)!.saveButton),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        scrollable: true,
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          keyboardType: isInt ? TextInputType.number : TextInputType.text,
+          inputFormatters: isInt
+              ? [FilteringTextInputFormatter.digitsOnly]
+              : [],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppLocalizations.of(context)!.cancelButton),
           ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: Text(AppLocalizations.of(context)!.saveButton),
+          ),
+        ],
+      ),
     );
 
     if (result != null && result.isNotEmpty) {
@@ -168,27 +176,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final controller = TextEditingController();
     final result = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            scrollable: true,
-            content: TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                labelText: AppLocalizations.of(context)!.passwordLabel,
-              ),
-              obscureText: true,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(AppLocalizations.of(context)!.cancelButton),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(AppLocalizations.of(context)!.saveButton),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        scrollable: true,
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: AppLocalizations.of(context)!.passwordLabel,
           ),
+          obscureText: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(AppLocalizations.of(context)!.cancelButton),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(AppLocalizations.of(context)!.saveButton),
+          ),
+        ],
+      ),
     );
     if (result == true) {
       await PasswordService.setPassword(controller.text);
@@ -224,19 +231,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       onTap: () async {
         final selectedAccuracy = await showDialog<String>(
           context: context,
-          builder:
-              (context) => SimpleDialog(
-                title: Text(AppLocalizations.of(context)!.accuracyLabel),
-                children:
-                    accuracyOptions
-                        .map(
-                          (option) => SimpleDialogOption(
-                            child: Text(_getAccuracyLabel(option)),
-                            onPressed: () => Navigator.pop(context, option),
-                          ),
-                        )
-                        .toList(),
-              ),
+          builder: (context) => SimpleDialog(
+            title: Text(AppLocalizations.of(context)!.accuracyLabel),
+            children: accuracyOptions
+                .map(
+                  (option) => SimpleDialogOption(
+                    child: Text(_getAccuracyLabel(option)),
+                    onPressed: () => Navigator.pop(context, option),
+                  ),
+                )
+                .toList(),
+          ),
         );
         if (selectedAccuracy != null) {
           await Preferences.instance.setString(
@@ -257,7 +262,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isHighestAccuracy =
         Preferences.instance.getString(Preferences.accuracy) == 'highest';
     final distance = Preferences.instance.getInt(Preferences.distance);
-    final scheduleEnabled = Preferences.instance.getBool(Preferences.scheduleEnabled) ?? false;
+    final scheduleEnabled =
+        Preferences.instance.getBool(Preferences.scheduleEnabled) ?? false;
     return Scaffold(
       appBar: AppBar(
         title: Text(AppLocalizations.of(context)!.settingsTitle),

@@ -33,11 +33,39 @@ class _QrCodeScreenState extends State<QrCodeScreen> {
     final barcode = capture.barcodes.first;
     final rawValue = barcode.rawValue;
     if (rawValue == null) return;
+
     final uri = Uri.tryParse(rawValue);
-    if (uri == null || uri.scheme.isEmpty) return;
+    if (uri == null) {
+      _showError('Invalid QR code format');
+      return;
+    }
+
+    if (!uri.scheme.startsWith('http') && !uri.scheme.startsWith('traccar')) {
+      _showError('QR code must contain a valid URL');
+      return;
+    }
+
     _scanned = true;
-    await ConfigurationService.applyUri(uri);
-    if (mounted) Navigator.pop(context);
+    try {
+      await ConfigurationService.applyUri(uri);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Settings applied successfully')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (error) {
+      _scanned = false; // Allow retry on error
+      _showError('Failed to apply settings: ${error.toString()}');
+    }
+  }
+
+  void _showError(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override
@@ -56,8 +84,8 @@ class _QrCodeScreenState extends State<QrCodeScreen> {
                       : Icons.flash_off,
                 ),
                 onPressed: state.torchState == TorchState.unavailable
-                        ? null
-                        : () => _controller.toggleTorch(),
+                    ? null
+                    : () => _controller.toggleTorch(),
               );
             },
           ),
@@ -76,12 +104,11 @@ class _QrCodeScreenState extends State<QrCodeScreen> {
                 children: [
                   Icon(Icons.videocam_off_outlined, size: 120),
                   Text(AppLocalizations.of(context)!.disabledValue),
-                  SizedBox(height: 24,),
+                  SizedBox(height: 24),
                   FilledButton.tonal(
-                    onPressed:
-                        () => AppSettings.openAppSettings(
-                          type: AppSettingsType.settings,
-                        ),
+                    onPressed: () => AppSettings.openAppSettings(
+                      type: AppSettingsType.settings,
+                    ),
                     child: Text(AppLocalizations.of(context)!.settingsTitle),
                   ),
                 ],

@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 9.7.12+126
 
 environment:
-  sdk: ^3.7.2
+  sdk: ^3.7.0
 
 dependencies:
   flutter:
@@ -24,13 +24,13 @@ dependencies:
   wakelock_partial_android: ^1.0.1
   mobile_scanner: ^7.2.0
   flutter_secure_storage: ^10.0.0
-  app_links: ^7.0.0
+  app_links: ^6.0.0
   app_settings: ^7.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.14.4
 
 flutter:

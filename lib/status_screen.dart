@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_background_geolocation/flutter_background_geolocation.dart' as bg;
+import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
+    as bg;
 
 import 'l10n/app_localizations.dart';
 
@@ -20,21 +21,25 @@ class _StatusScreenState extends State<StatusScreen> {
   }
 
   Future<void> _refreshLogs() async {
-    final logs = await bg.Logger.getLog(bg.SQLQuery(
-      order: bg.SQLQuery.ORDER_DESC,
-      limit: 2000,
-    ));
+    final logs = await bg.Logger.getLog(
+      bg.SQLQuery(order: bg.SQLQuery.ORDER_DESC, limit: 2000),
+    );
+    final logLines = logs.split('\n');
+    // Limit UI display to last 500 lines for performance
+    final displayLines = logLines.length > 500
+        ? logLines.sublist(0, 500)
+        : logLines;
     setState(() {
       _logs.clear();
-      _logs.addAll(logs.split('\n'));
+      _logs.addAll(displayLines);
     });
   }
 
   Future<void> _emailLogs() async {
-    await bg.Logger.emailLog("support@traccar.org", bg.SQLQuery(
-      order: bg.SQLQuery.ORDER_DESC,
-      limit: 25000,
-    ));
+    await bg.Logger.emailLog(
+      "support@traccar.org",
+      bg.SQLQuery(order: bg.SQLQuery.ORDER_DESC, limit: 25000),
+    );
   }
 
   Future<void> _clearLogs() async {
@@ -48,18 +53,9 @@ class _StatusScreenState extends State<StatusScreen> {
       appBar: AppBar(
         title: Text(AppLocalizations.of(context)!.statusTitle),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _refreshLogs,
-          ),
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: _emailLogs,
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: _clearLogs,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _refreshLogs),
+          IconButton(icon: const Icon(Icons.share), onPressed: _emailLogs),
+          IconButton(icon: const Icon(Icons.delete), onPressed: _clearLogs),
         ],
       ),
       body: ListView.builder(
@@ -69,10 +65,7 @@ class _StatusScreenState extends State<StatusScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: Text(
             _logs[index],
-            style: TextStyle(
-              fontSize: 10,
-              fontFamily: 'monospace',
-            ),
+            style: TextStyle(fontSize: 10, fontFamily: 'monospace'),
           ),
         ),
       ),

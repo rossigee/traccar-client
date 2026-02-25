@@ -26,6 +26,7 @@ class GeolocationService {
     bg.BackgroundGeolocation.onLocation(onLocation, (bg.LocationError error) {
       developer.log('Location error', error: error);
     });
+    bg.BackgroundGeolocation.onConnectivityChange(onConnectivityChange);
   }
 
   static Future<void> onEnabledChange(bool enabled) async {
@@ -65,6 +66,20 @@ class GeolocationService {
     );
   }
 
+  static Future<void> onConnectivityChange(
+    bg.ConnectivityChangeEvent event,
+  ) async {
+    developer.log('Connectivity changed: ${event.connected}');
+    if (event.connected) {
+      // When connectivity is restored, sync any queued locations
+      try {
+        await bg.BackgroundGeolocation.sync();
+      } catch (error) {
+        developer.log('Failed to sync on connectivity restore', error: error);
+      }
+    }
+  }
+
   static Future<void> onLocation(bg.Location location) async {
     if (_shouldDelete(location)) {
       try {
@@ -96,16 +111,25 @@ class GeolocationService {
 
     // If cache is null (e.g., in headless isolate), check SharedPreferences directly
     if (lastLocation == null) {
-      final lastTimestamp = Preferences.instance.getString(Preferences.lastTimestamp);
+      final lastTimestamp = Preferences.instance.getString(
+        Preferences.lastTimestamp,
+      );
       if (lastTimestamp != null) {
         // Not the first location ever - apply minimum filtering to prevent excessive uploads
-        final duration = DateTime.parse(location.timestamp).difference(DateTime.parse(lastTimestamp)).inSeconds;
-        final isHighestAccuracy = Preferences.instance.getString(Preferences.accuracy) == 'highest';
+        final duration = DateTime.parse(
+          location.timestamp,
+        ).difference(DateTime.parse(lastTimestamp)).inSeconds;
+        final isHighestAccuracy =
+            Preferences.instance.getString(Preferences.accuracy) == 'highest';
 
         if (!isHighestAccuracy) {
-          final fastestInterval = Preferences.instance.getInt(Preferences.fastestInterval);
+          final fastestInterval = Preferences.instance.getInt(
+            Preferences.fastestInterval,
+          );
           if (fastestInterval != null && duration < fastestInterval) {
-            developer.log('Location too frequent (${duration}s < ${fastestInterval}s), deleting');
+            developer.log(
+              'Location too frequent (${duration}s < ${fastestInterval}s), deleting',
+            );
             return true;
           }
         }
@@ -116,10 +140,9 @@ class GeolocationService {
 
     final isHighestAccuracy =
         Preferences.instance.getString(Preferences.accuracy) == 'highest';
-    final duration =
-        DateTime.parse(
-          location.timestamp,
-        ).difference(DateTime.parse(lastLocation.timestamp)).inSeconds;
+    final duration = DateTime.parse(
+      location.timestamp,
+    ).difference(DateTime.parse(lastLocation.timestamp)).inSeconds;
 
     if (!isHighestAccuracy) {
       final fastestInterval = Preferences.instance.getInt(

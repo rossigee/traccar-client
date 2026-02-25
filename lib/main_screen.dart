@@ -86,6 +86,7 @@ class _HomeTabState extends State<_HomeTab> {
   double? _longitude;
   double? _speed;
   double? _heading;
+  bool _isLocationRequestInProgress = false;
 
   @override
   void initState() {
@@ -126,22 +127,19 @@ class _HomeTabState extends State<_HomeTab> {
         if (!request.seen && context.mounted) {
           showDialog(
             context: context,
-            builder:
-                (_) => AlertDialog(
-                  scrollable: true,
-                  content: Text(
-                    AppLocalizations.of(context)!.optimizationMessage,
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        bg.DeviceSettings.show(request);
-                      },
-                      child: Text(AppLocalizations.of(context)!.okButton),
-                    ),
-                  ],
+            builder: (_) => AlertDialog(
+              scrollable: true,
+              content: Text(AppLocalizations.of(context)!.optimizationMessage),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    bg.DeviceSettings.show(request);
+                  },
+                  child: Text(AppLocalizations.of(context)!.okButton),
                 ),
+              ],
+            ),
           );
         }
       }
@@ -175,16 +173,14 @@ class _HomeTabState extends State<_HomeTab> {
             SnackBar(
               content: Text(error.message ?? error.code),
               duration: const Duration(seconds: 4),
-              action:
-                  isPermissionError
-                      ? SnackBarAction(
-                        label: AppLocalizations.of(context)!.settingsTitle,
-                        onPressed:
-                            () => AppSettings.openAppSettings(
-                              type: AppSettingsType.settings,
-                            ),
-                      )
-                      : null,
+              action: isPermissionError
+                  ? SnackBarAction(
+                      label: AppLocalizations.of(context)!.settingsTitle,
+                      onPressed: () => AppSettings.openAppSettings(
+                        type: AppSettingsType.settings,
+                      ),
+                    )
+                  : null,
             ),
           );
         }
@@ -259,7 +255,16 @@ class _HomeTabState extends State<_HomeTab> {
                   style: tt.titleLarge?.copyWith(color: contentColor),
                 ),
                 const SizedBox(height: 16),
-                Switch(value: _trackingEnabled, onChanged: _toggleTracking),
+                Semantics(
+                  label: _trackingEnabled
+                      ? 'Disable GPS tracking'
+                      : 'Enable GPS tracking',
+                  hint: 'Toggle GPS location tracking on or off',
+                  child: Switch(
+                    value: _trackingEnabled,
+                    onChanged: _toggleTracking,
+                  ),
+                ),
               ],
             ),
           ),
@@ -324,23 +329,62 @@ class _HomeTabState extends State<_HomeTab> {
                   Row(
                     children: [
                       Expanded(
-                        child: FilledButton.tonal(
-                          onPressed: () async {
-                            try {
-                              await bg.BackgroundGeolocation.getCurrentPosition(
-                                samples: 1,
-                                persist: true,
-                                extras: {'manual': true},
-                              );
-                            } on PlatformException catch (error) {
-                              messengerKey.currentState?.showSnackBar(
-                                SnackBar(
-                                  content: Text(error.message ?? error.code),
-                                ),
-                              );
-                            }
-                          },
-                          child: Text(l10n.locationButton),
+                        child: Semantics(
+                          label: 'Request current location',
+                          hint: 'Get a single GPS location update',
+                          button: true,
+                          enabled: !_isLocationRequestInProgress,
+                          child: FilledButton.tonal(
+                            onPressed: _isLocationRequestInProgress
+                                ? null
+                                : () async {
+                                    setState(
+                                      () => _isLocationRequestInProgress = true,
+                                    );
+                                    try {
+                                      await bg
+                                          .BackgroundGeolocation.getCurrentPosition(
+                                        samples: 1,
+                                        persist: true,
+                                        extras: {'manual': true},
+                                      );
+                                    } on PlatformException catch (error) {
+                                      if (mounted) {
+                                        messengerKey.currentState?.showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              error.message ?? error.code,
+                                            ),
+                                            action: SnackBarAction(
+                                              label: 'Settings',
+                                              onPressed: () =>
+                                                  AppSettings.openAppSettings(
+                                                    type: AppSettingsType
+                                                        .settings,
+                                                  ),
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    } finally {
+                                      if (mounted) {
+                                        setState(
+                                          () => _isLocationRequestInProgress =
+                                              false,
+                                        );
+                                      }
+                                    }
+                                  },
+                            child: _isLocationRequestInProgress
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(l10n.locationButton),
+                          ),
                         ),
                       ),
                     ],

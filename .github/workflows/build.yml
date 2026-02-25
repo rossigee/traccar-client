@@ -31,11 +31,34 @@ jobs:
     - name: Get dependencies
       run: flutter pub get
 
-    - name: Build APK
+    - name: Build debug APK
       run: flutter build apk --debug
+
+    - name: Generate test keystore for release build
+      run: |
+        mkdir -p android/app
+        keytool -genkeypair -v -storetype PKCS12 -keystore android/app/traccar-client.keystore -alias traccar-client -keyalg RSA -keysize 2048 -validity 10000 -storepass testpass -keypass testpass -dname "CN=Test, OU=Dev, O=Test, L=Test, S=Test, C=US"
+
+    - name: Create key.properties for release build
+      run: |
+        mkdir -p environment
+        echo "storePassword=testpass" > environment/key.properties
+        echo "keyPassword=testpass" >> environment/key.properties
+        echo "keyAlias=traccar-client" >> environment/key.properties
+        echo "storeFile=app/traccar-client.keystore" >> environment/key.properties
+
+    - name: Build release APK
+      run: flutter build apk --release
 
     - name: Upload debug APK
       uses: actions/upload-artifact@v4
       with:
         name: traccar-client-debug
         path: build/app/outputs/flutter-apk/app-debug.apk
+
+    - name: Upload release APK (if exists)
+      uses: actions/upload-artifact@v4
+      with:
+        name: traccar-client-release
+        path: build/app/outputs/flutter-apk/app-release.apk
+      if: success() && hashFiles('android/app/traccar-client.keystore') != ''

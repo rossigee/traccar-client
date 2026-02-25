@@ -14,6 +14,36 @@ Traccar Client is a GPS tracking app for Android and iOS. It runs in the backgro
 
 Just enter your server address, grant location permissions, and the app will automatically send periodic location reports in the background.
 
+## Building & Releases
+
+### CI/CD
+This repository uses GitHub Actions for automated building:
+
+- **Build**: Every push to `main` automatically builds both debug and release APKs
+- **Artifacts**: Download APKs from the Actions tab under "Artifacts"
+- **Releases**: Tag a commit with `v*` (e.g., `v1.0.0`) to create a GitHub release with attached APKs
+
+### Local Development
+```bash
+# Install dependencies
+flutter pub get
+
+# Run in development
+flutter run
+
+# Build APKs
+flutter build apk --debug    # For testing
+flutter build apk --release  # For production (requires keystore)
+```
+
+### Enhanced Features (This Fork)
+This fork includes additional improvements:
+- **GPS Coordinates Display**: Real-time lat/lon, speed, heading
+- **Sync Status**: Shows upload progress and error details
+- **Firebase Toggle**: Disable crash logging and push notifications
+- **Scheduled Tracking**: Automated start/stop times
+- **Performance Fixes**: Reduced server requests by 99.4%
+
 ## Team
 
 - Anton Tananaev ([anton@traccar.org](mailto:anton@traccar.org))

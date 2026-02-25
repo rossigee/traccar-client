@@ -65,7 +65,7 @@ class _StatusScreenState extends State<StatusScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: Text(
             _logs[index],
-            style: TextStyle(fontSize: 10, fontFamily: 'monospace'),
+            style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
           ),
         ),
       ),

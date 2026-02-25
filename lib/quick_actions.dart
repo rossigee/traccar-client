@@ -19,7 +19,7 @@ class QuickActionsInitializer extends StatefulWidget {
 }
 
 class _QuickActionsInitializerState extends State<QuickActionsInitializer> {
-  final QuickActions quickActions = QuickActions();
+  final QuickActions quickActions = const QuickActions();
 
   @override
   void initState() {

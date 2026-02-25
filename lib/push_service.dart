@@ -4,13 +4,17 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_background_geolocation/flutter_background_geolocation.dart' as bg;
+import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
+    as bg;
 import 'package:traccar_client/password_service.dart';
 
 import 'preferences.dart';
 
 class PushService {
   static Future<void> init() async {
+    final firebaseEnabled =
+        Preferences.instance.getBool(Preferences.firebase) ?? true;
+    if (!firebaseEnabled) return;
     await FirebaseMessaging.instance.requestPermission();
     FirebaseMessaging.onBackgroundMessage(pushServiceBackgroundHandler);
     FirebaseMessaging.onMessage.listen(_onMessage);
@@ -32,7 +36,11 @@ class PushService {
     switch (command) {
       case 'positionSingle':
         try {
-          await bg.BackgroundGeolocation.getCurrentPosition(samples: 1, persist: true, extras: {'remote': true});
+          await bg.BackgroundGeolocation.getCurrentPosition(
+            samples: 1,
+            persist: true,
+            extras: {'remote': true},
+          );
         } catch (error) {
           developer.log('Failed to get position', error: error);
         }
@@ -52,8 +60,12 @@ class PushService {
     if (id == null || url == null) return;
     try {
       final request = await HttpClient().postUrl(Uri.parse(url));
-      request.headers.contentType = ContentType.parse('application/x-www-form-urlencoded');
-      request.write('id=${Uri.encodeComponent(id)}&notificationToken=${Uri.encodeComponent(token)}');
+      request.headers.contentType = ContentType.parse(
+        'application/x-www-form-urlencoded',
+      );
+      request.write(
+        'id=${Uri.encodeComponent(id)}&notificationToken=${Uri.encodeComponent(token)}',
+      );
       await request.close();
     } catch (error) {
       developer.log('Failed to upload token', error: error);
@@ -63,8 +75,11 @@ class PushService {
 
 @pragma('vm:entry-point')
 Future<void> pushServiceBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
   await Preferences.init();
+  final firebaseEnabled =
+      Preferences.instance.getBool(Preferences.firebase) ?? true;
+  if (!firebaseEnabled) return;
+  await Firebase.initializeApp();
   await bg.BackgroundGeolocation.ready(Preferences.geolocationConfig());
   FirebaseCrashlytics.instance.log('push_background_handler');
   await PushService._onMessage(message);

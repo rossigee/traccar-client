@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_background_geolocation/flutter_background_geolocation.dart' as bg;
+import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
+    as bg;
 import 'package:traccar_client/main.dart';
 import 'package:traccar_client/password_service.dart';
 import 'package:traccar_client/qr_code_screen.dart';
@@ -31,41 +32,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _editSetting(String title, String key, bool isInt) async {
-    final initialValue = isInt
-        ? Preferences.instance.getInt(key)?.toString() ?? '0'
-        : Preferences.instance.getString(key) ?? '';
+    final initialValue =
+        isInt
+            ? Preferences.instance.getInt(key)?.toString() ?? '0'
+            : Preferences.instance.getString(key) ?? '';
 
     final controller = TextEditingController(text: initialValue);
     final errorMessage = AppLocalizations.of(context)!.invalidValue;
 
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        scrollable: true,
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          keyboardType: isInt ? TextInputType.number : TextInputType.text,
-          inputFormatters: isInt ? [FilteringTextInputFormatter.digitsOnly] : [],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppLocalizations.of(context)!.cancelButton),
+      builder:
+          (context) => AlertDialog(
+            scrollable: true,
+            title: Text(title),
+            content: TextField(
+              controller: controller,
+              keyboardType: isInt ? TextInputType.number : TextInputType.text,
+              inputFormatters:
+                  isInt ? [FilteringTextInputFormatter.digitsOnly] : [],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(AppLocalizations.of(context)!.cancelButton),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, controller.text),
+                child: Text(AppLocalizations.of(context)!.saveButton),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: Text(AppLocalizations.of(context)!.saveButton),
-          ),
-        ],
-      ),
     );
 
     if (result != null && result.isNotEmpty) {
       if (key == Preferences.url) {
         final uri = Uri.tryParse(result);
-        if (uri == null || uri.host.isEmpty || !(uri.scheme == 'http' || uri.scheme == 'https')) {
-          messengerKey.currentState?.showSnackBar(SnackBar(content: Text(errorMessage)));
+        if (uri == null ||
+            uri.host.isEmpty ||
+            !(uri.scheme == 'http' || uri.scheme == 'https')) {
+          messengerKey.currentState?.showSnackBar(
+            SnackBar(content: Text(errorMessage)),
+          );
           return;
         }
       }
@@ -89,24 +97,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final controller = TextEditingController();
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        scrollable: true,
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(labelText: AppLocalizations.of(context)!.passwordLabel),
-          obscureText: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(AppLocalizations.of(context)!.cancelButton),
+      builder:
+          (context) => AlertDialog(
+            scrollable: true,
+            content: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.passwordLabel,
+              ),
+              obscureText: true,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(AppLocalizations.of(context)!.cancelButton),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(AppLocalizations.of(context)!.saveButton),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(AppLocalizations.of(context)!.saveButton),
-          ),
-        ],
-      ),
     );
     if (result == true) {
       await PasswordService.setPassword(controller.text);
@@ -136,21 +147,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final accuracyOptions = ['highest', 'high', 'medium', 'low'];
     return ListTile(
       title: Text(AppLocalizations.of(context)!.accuracyLabel),
-      subtitle: Text(_getAccuracyLabel(Preferences.instance.getString(Preferences.accuracy))),
+      subtitle: Text(
+        _getAccuracyLabel(Preferences.instance.getString(Preferences.accuracy)),
+      ),
       onTap: () async {
         final selectedAccuracy = await showDialog<String>(
           context: context,
-          builder: (context) => SimpleDialog(
-            title: Text(AppLocalizations.of(context)!.accuracyLabel),
-            children: accuracyOptions.map((option) => SimpleDialogOption(
-              child: Text(_getAccuracyLabel(option)),
-              onPressed: () => Navigator.pop(context, option),
-            )).toList(),
-          ),
+          builder:
+              (context) => SimpleDialog(
+                title: Text(AppLocalizations.of(context)!.accuracyLabel),
+                children:
+                    accuracyOptions
+                        .map(
+                          (option) => SimpleDialogOption(
+                            child: Text(_getAccuracyLabel(option)),
+                            onPressed: () => Navigator.pop(context, option),
+                          ),
+                        )
+                        .toList(),
+              ),
         );
         if (selectedAccuracy != null) {
-          await Preferences.instance.setString(Preferences.accuracy, selectedAccuracy);
-          await bg.BackgroundGeolocation.setConfig(Preferences.geolocationConfig());
+          await Preferences.instance.setString(
+            Preferences.accuracy,
+            selectedAccuracy,
+          );
+          await bg.BackgroundGeolocation.setConfig(
+            Preferences.geolocationConfig(),
+          );
           setState(() {});
         }
       },
@@ -159,7 +183,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isHighestAccuracy = Preferences.instance.getString(Preferences.accuracy) == 'highest';
+    final isHighestAccuracy =
+        Preferences.instance.getString(Preferences.accuracy) == 'highest';
     final distance = Preferences.instance.getInt(Preferences.distance);
     return Scaffold(
       appBar: AppBar(
@@ -168,7 +193,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           IconButton(
             icon: const Icon(Icons.qr_code_scanner),
             onPressed: () async {
-              await Navigator.push(context, MaterialPageRoute(builder: (_) => const QrCodeScreen()));
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const QrCodeScreen()),
+              );
               setState(() {});
             },
           ),
@@ -176,15 +204,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       body: ListView(
         children: [
-          _buildListTile(AppLocalizations.of(context)!.idLabel, Preferences.id, false),
-          _buildListTile(AppLocalizations.of(context)!.urlLabel, Preferences.url, false),
+          _buildListTile(
+            AppLocalizations.of(context)!.idLabel,
+            Preferences.id,
+            false,
+          ),
+          _buildListTile(
+            AppLocalizations.of(context)!.urlLabel,
+            Preferences.url,
+            false,
+          ),
           _buildAccuracyListTile(),
-          _buildListTile(AppLocalizations.of(context)!.distanceLabel, Preferences.distance, true),
+          _buildListTile(
+            AppLocalizations.of(context)!.distanceLabel,
+            Preferences.distance,
+            true,
+          ),
           if (isHighestAccuracy || Platform.isAndroid && distance == 0)
-            _buildListTile(AppLocalizations.of(context)!.intervalLabel, Preferences.interval, true),
+            _buildListTile(
+              AppLocalizations.of(context)!.intervalLabel,
+              Preferences.interval,
+              true,
+            ),
           if (isHighestAccuracy)
-            _buildListTile(AppLocalizations.of(context)!.angleLabel, Preferences.angle, true),
-          _buildListTile(AppLocalizations.of(context)!.heartbeatLabel, Preferences.heartbeat, true),
+            _buildListTile(
+              AppLocalizations.of(context)!.angleLabel,
+              Preferences.angle,
+              true,
+            ),
+          _buildListTile(
+            AppLocalizations.of(context)!.heartbeatLabel,
+            Preferences.heartbeat,
+            true,
+          ),
           SwitchListTile(
             title: Text(AppLocalizations.of(context)!.advancedLabel),
             value: advanced,
@@ -193,21 +245,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           if (advanced)
-            _buildListTile(AppLocalizations.of(context)!.fastestIntervalLabel, Preferences.fastestInterval, true),
+            _buildListTile(
+              AppLocalizations.of(context)!.fastestIntervalLabel,
+              Preferences.fastestInterval,
+              true,
+            ),
           if (advanced)
             SwitchListTile(
               title: Text(AppLocalizations.of(context)!.bufferLabel),
               value: Preferences.instance.getBool(Preferences.buffer) ?? true,
               onChanged: (value) async {
                 await Preferences.instance.setBool(Preferences.buffer, value);
-                await bg.BackgroundGeolocation.setConfig(Preferences.geolocationConfig());
+                await bg.BackgroundGeolocation.setConfig(
+                  Preferences.geolocationConfig(),
+                );
                 setState(() {});
               },
             ),
           if (advanced && Platform.isAndroid)
             SwitchListTile(
               title: Text(AppLocalizations.of(context)!.wakelockLabel),
-              value: Preferences.instance.getBool(Preferences.wakelock) ?? false,
+              value:
+                  Preferences.instance.getBool(Preferences.wakelock) ?? false,
               onChanged: (value) async {
                 await Preferences.instance.setBool(Preferences.wakelock, value);
                 if (value) {
@@ -224,10 +283,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (advanced)
             SwitchListTile(
               title: Text(AppLocalizations.of(context)!.stopDetectionLabel),
-              value: Preferences.instance.getBool(Preferences.stopDetection) ?? true,
+              value:
+                  Preferences.instance.getBool(Preferences.stopDetection) ??
+                  true,
               onChanged: (value) async {
-                await Preferences.instance.setBool(Preferences.stopDetection, value);
-                await bg.BackgroundGeolocation.setConfig(Preferences.geolocationConfig());
+                await Preferences.instance.setBool(
+                  Preferences.stopDetection,
+                  value,
+                );
+                await bg.BackgroundGeolocation.setConfig(
+                  Preferences.geolocationConfig(),
+                );
+                setState(() {});
+              },
+            ),
+          if (advanced)
+            SwitchListTile(
+              title: const Text('Firebase'),
+              subtitle: const Text('Crashlytics and push notifications'),
+              value: Preferences.instance.getBool(Preferences.firebase) ?? true,
+              onChanged: (value) async {
+                await Preferences.instance.setBool(Preferences.firebase, value);
                 setState(() {});
               },
             ),

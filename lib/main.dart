@@ -20,9 +20,13 @@ final messengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
   await Preferences.init();
+  final firebaseEnabled =
+      Preferences.instance.getBool(Preferences.firebase) ?? true;
+  if (firebaseEnabled) {
+    await Firebase.initializeApp();
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  }
   await PasswordService.migrate();
   await GeolocationService.init();
   await PushService.init();
@@ -84,12 +88,7 @@ class _MainAppState extends State<MainApp> {
           brightness: Brightness.dark,
         ),
       ),
-      home: Stack(
-        children: const [
-          QuickActionsInitializer(),
-          MainScreen(),
-        ],
-      ),
+      home: Stack(children: const [QuickActionsInitializer(), MainScreen()]),
     );
   }
 }

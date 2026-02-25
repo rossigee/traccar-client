@@ -23,6 +23,10 @@ class Preferences {
   static const String stopDetection = 'stop_detection';
   static const String password = 'password';
   static const String firebase = 'firebase';
+  static const String scheduleStart = 'schedule_start';
+  static const String scheduleStop = 'schedule_stop';
+  static const String scheduleEntry = 'schedule_entry';
+  static const String scheduleEnabled = 'schedule_enabled';
 
   static const String lastTimestamp = 'lastTimestamp';
   static const String lastLatitude = 'lastLatitude';
@@ -36,13 +40,11 @@ class Preferences {
 
   static Future<void> _createInstance() async {
     instance = await SharedPreferencesWithCache.create(
-      sharedPreferencesOptions:
-          Platform.isAndroid
-              ? SharedPreferencesAsyncAndroidOptions(
-                backend:
-                    SharedPreferencesAndroidBackendLibrary.SharedPreferences,
-              )
-              : SharedPreferencesOptions(),
+      sharedPreferencesOptions: Platform.isAndroid
+          ? SharedPreferencesAsyncAndroidOptions(
+              backend: SharedPreferencesAndroidBackendLibrary.SharedPreferences,
+            )
+          : SharedPreferencesOptions(),
       cacheOptions: SharedPreferencesWithCacheOptions(
         allowList: {
           id,
@@ -58,10 +60,20 @@ class Preferences {
           stopDetection,
           password,
           firebase,
+          scheduleStart,
+          scheduleStop,
+          scheduleEntry,
+          scheduleEnabled,
           lastTimestamp,
           lastLatitude,
           lastLongitude,
           lastHeading,
+          'device_id_preference',
+          'server_url_preference',
+          'accuracy_preference',
+          'frequency_preference',
+          'distance_preference',
+          'buffer_preference',
         },
       ),
     );
@@ -78,7 +90,25 @@ class Preferences {
       await instance.setBool(stopDetection, true);
       await instance.setInt(fastestInterval, 30);
       await instance.setBool(firebase, true);
+      await instance.setBool(scheduleEnabled, false);
     }
+    await _ensureScheduleEntry();
+  }
+
+  static Future<void> _ensureScheduleEntry() async {
+    final hasSchedule = instance.getBool(scheduleEnabled) ?? false;
+    if (!hasSchedule) {
+      return;
+    }
+
+    final entry = instance.getString(scheduleEntry);
+    if (entry != null && entry.trim().isNotEmpty) {
+      return;
+    }
+
+    final start = instance.getString(scheduleStart) ?? '08:00';
+    final stop = instance.getString(scheduleStop) ?? '17:00';
+    await instance.setString(scheduleEntry, '1-7 $start-$stop');
   }
 
   static bg.Config geolocationConfig() {
@@ -99,53 +129,49 @@ class Preferences {
           'low' => bg.DesiredAccuracy.low,
           _ => bg.DesiredAccuracy.medium,
         },
-        distanceFilter:
-            isHighestAccuracy ? 0 : instance.getInt(distance)?.toDouble(),
-        locationUpdateInterval:
-            Platform.isAndroid
-                ? (isHighestAccuracy
-                    ? 0
-                    : (locationUpdateInterval > 0
+        distanceFilter: isHighestAccuracy
+            ? 0
+            : instance.getInt(distance)?.toDouble(),
+        locationUpdateInterval: Platform.isAndroid
+            ? (isHighestAccuracy
+                  ? 0
+                  : (locationUpdateInterval > 0
                         ? locationUpdateInterval
                         : null))
-                : null,
-        fastestLocationUpdateInterval:
-            Platform.isAndroid
-                ? (isHighestAccuracy ? 0 : fastestLocationUpdateInterval)
-                : null,
+            : null,
+        fastestLocationUpdateInterval: Platform.isAndroid
+            ? (isHighestAccuracy ? 0 : fastestLocationUpdateInterval)
+            : null,
         disableElasticity: true,
-        pausesLocationUpdatesAutomatically:
-            Platform.isIOS
-                ? !(isHighestAccuracy ||
-                    instance.getBool(stopDetection) == false)
-                : null,
+        pausesLocationUpdatesAutomatically: Platform.isIOS
+            ? !(isHighestAccuracy || instance.getBool(stopDetection) == false)
+            : null,
         showsBackgroundLocationIndicator: Platform.isIOS ? false : null,
       ),
       app: bg.AppConfig(
         enableHeadless: Platform.isAndroid ? true : null,
         stopOnTerminate: false,
         startOnBoot: Platform.isAndroid ? true : null,
-        heartbeatInterval:
-            heartbeatInterval > 0 ? heartbeatInterval.toDouble() : null,
+        heartbeatInterval: heartbeatInterval > 0
+            ? heartbeatInterval.toDouble()
+            : null,
         preventSuspend: Platform.isIOS ? (heartbeatInterval > 0) : null,
-        backgroundPermissionRationale:
-            Platform.isAndroid
-                ? bg.PermissionRationale(
-                  title:
-                      'Allow {applicationName} to access this device\'s location in the background',
-                  message:
-                      'For reliable tracking, please enable {backgroundPermissionOptionLabel} location access.',
-                  positiveAction: 'Change to {backgroundPermissionOptionLabel}',
-                  negativeAction: 'Cancel',
-                )
-                : null,
-        notification:
-            Platform.isAndroid
-                ? bg.Notification(
-                  smallIcon: 'drawable/ic_stat_notify',
-                  priority: bg.NotificationPriority.low,
-                )
-                : null,
+        backgroundPermissionRationale: Platform.isAndroid
+            ? bg.PermissionRationale(
+                title:
+                    'Allow {applicationName} to access this device\'s location in the background',
+                message:
+                    'For reliable tracking, please enable {backgroundPermissionOptionLabel} location access.',
+                positiveAction: 'Change to {backgroundPermissionOptionLabel}',
+                negativeAction: 'Cancel',
+              )
+            : null,
+        notification: Platform.isAndroid
+            ? bg.Notification(
+                smallIcon: 'drawable/ic_stat_notify',
+                priority: bg.NotificationPriority.low,
+              )
+            : null,
       ),
       http: bg.HttpConfig(
         autoSync: true,
@@ -198,6 +224,9 @@ class Preferences {
         "type": "<%= activity.type %>"
       },
       "extras": {}
-    }'''.split('\n').map((line) => line.trimLeft()).join();
+    }'''
+        .split('\n')
+        .map((line) => line.trimLeft())
+        .join();
   }
 }

@@ -7,6 +7,7 @@ import 'package:flutter_background_geolocation/flutter_background_geolocation.da
 import 'package:traccar_client/main.dart';
 import 'package:traccar_client/password_service.dart';
 import 'package:traccar_client/qr_code_screen.dart';
+import 'package:traccar_client/schedule_service.dart';
 import 'package:wakelock_partial_android/wakelock_partial_android.dart';
 
 import 'l10n/app_localizations.dart';
@@ -20,7 +21,77 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  static const _defaultScheduleEntry = '1-7 08:00-17:00';
+
   bool advanced = false;
+
+  String _schedulePreview() {
+    final entry = Preferences.instance.getString(Preferences.scheduleEntry)?.trim();
+    if (entry == null || entry.isEmpty) {
+      return AppLocalizations.of(context)!.scheduleUnsetLabel;
+    }
+    return entry.split('\n').first;
+  }
+
+  Future<void> _editScheduleEntry() async {
+    final controller = TextEditingController(
+      text: Preferences.instance.getString(Preferences.scheduleEntry) ?? _defaultScheduleEntry,
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        scrollable: true,
+        title: Text(AppLocalizations.of(context)!.scheduleEntryLabel),
+        content: TextField(
+          controller: controller,
+          minLines: 3,
+          maxLines: 5,
+          keyboardType: TextInputType.multiline,
+          decoration: InputDecoration(
+            hintText: AppLocalizations.of(context)!.scheduleEntryHint,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppLocalizations.of(context)!.cancelButton),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: Text(AppLocalizations.of(context)!.saveButton),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      final trimmed = result.trim();
+      if (trimmed.isEmpty) {
+        messengerKey.currentState?.showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.invalidValue)),
+        );
+        return;
+      }
+      await Preferences.instance.setString(Preferences.scheduleEntry, trimmed);
+      await ScheduleService.sync();
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _toggleSchedule(bool value) async {
+    if (value) {
+      final entry = Preferences.instance.getString(Preferences.scheduleEntry);
+      if (entry == null || entry.trim().isEmpty) {
+        await Preferences.instance.setString(Preferences.scheduleEntry, _defaultScheduleEntry);
+      }
+    } else {
+      await Preferences.instance.remove(Preferences.scheduleEntry);
+      await Preferences.instance.remove(Preferences.scheduleStart);
+      await Preferences.instance.remove(Preferences.scheduleStop);
+    }
+    await Preferences.instance.setBool(Preferences.scheduleEnabled, value);
+    await ScheduleService.sync();
+    if (mounted) setState(() {});
+  }
 
   String _getAccuracyLabel(String? key) {
     return switch (key) {
@@ -186,6 +257,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isHighestAccuracy =
         Preferences.instance.getString(Preferences.accuracy) == 'highest';
     final distance = Preferences.instance.getInt(Preferences.distance);
+    final scheduleEnabled = Preferences.instance.getBool(Preferences.scheduleEnabled) ?? false;
     return Scaffold(
       appBar: AppBar(
         title: Text(AppLocalizations.of(context)!.settingsTitle),
@@ -244,6 +316,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               setState(() => advanced = value);
             },
           ),
+          SwitchListTile(
+            title: Text(AppLocalizations.of(context)!.scheduleEnabledLabel),
+            value: scheduleEnabled,
+            onChanged: _toggleSchedule,
+          ),
+          if (scheduleEnabled)
+            ListTile(
+              contentPadding: const EdgeInsets.only(left: 32, right: 16),
+              title: Text(AppLocalizations.of(context)!.scheduleEntryLabel),
+              subtitle: Text(_schedulePreview()),
+              onTap: _editScheduleEntry,
+            ),
           if (advanced)
             _buildListTile(
               AppLocalizations.of(context)!.fastestIntervalLabel,

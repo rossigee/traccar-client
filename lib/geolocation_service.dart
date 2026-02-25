@@ -7,6 +7,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
     as bg;
 import 'package:traccar_client/location_cache.dart';
+import 'package:traccar_client/main.dart' show firebaseEnabled;
 import 'package:traccar_client/preferences.dart';
 import 'package:wakelock_partial_android/wakelock_partial_android.dart';
 
@@ -16,8 +17,6 @@ class GeolocationService {
     if (Platform.isAndroid) {
       await bg.BackgroundGeolocation.registerHeadlessTask(headlessTask);
     }
-    final firebaseEnabled =
-        Preferences.instance.getBool(Preferences.firebase) ?? true;
     if (firebaseEnabled) {
       FirebaseCrashlytics.instance.log('geolocation_init');
     }
@@ -30,8 +29,6 @@ class GeolocationService {
   }
 
   static Future<void> onEnabledChange(bool enabled) async {
-    final firebaseEnabled =
-        Preferences.instance.getBool(Preferences.firebase) ?? true;
     if (firebaseEnabled) {
       FirebaseCrashlytics.instance.log('geolocation_enabled:$enabled');
     }
@@ -43,8 +40,6 @@ class GeolocationService {
   }
 
   static Future<void> onMotionChange(bg.Location location) async {
-    final firebaseEnabled =
-        Preferences.instance.getBool(Preferences.firebase) ?? true;
     if (firebaseEnabled) {
       FirebaseCrashlytics.instance.log(
         'geolocation_motion:${location.isMoving}',
@@ -60,6 +55,9 @@ class GeolocationService {
   }
 
   static Future<void> onHeartbeat(bg.HeartbeatEvent event) async {
+    if (Preferences.instance.getBool(Preferences.wakelock) ?? false) {
+      await WakelockPartialAndroid.acquire();
+    }
     await bg.BackgroundGeolocation.getCurrentPosition(
       samples: 1,
       persist: true,
@@ -152,9 +150,9 @@ Future<void>? _firebaseInitialization;
 @pragma('vm:entry-point')
 void headlessTask(bg.HeadlessEvent headlessEvent) async {
   await Preferences.init();
-  final firebaseEnabled =
+  final headlessFirebaseEnabled =
       Preferences.instance.getBool(Preferences.firebase) ?? true;
-  if (firebaseEnabled) {
+  if (headlessFirebaseEnabled) {
     await (_firebaseInitialization ??= Firebase.initializeApp());
     FirebaseCrashlytics.instance.log(
       'geolocation_headless:${headlessEvent.name}',

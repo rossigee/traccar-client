@@ -149,6 +149,8 @@ class Preferences {
       ),
       http: bg.HttpConfig(
         autoSync: true,
+        autoSyncThreshold: 1,
+        batchSync: false,
         url: _formatUrl(instance.getString(url)),
         params: {'device_id': instance.getString(id)},
       ),
@@ -169,14 +171,14 @@ class Preferences {
   static String? _formatUrl(String? url) {
     if (url == null) return null;
     final uri = Uri.parse(url);
-    if ((uri.path.isEmpty || uri.path == '') && !url.endsWith('/'))
-      return '$url/';
+    if (uri.path.isEmpty && !url.endsWith('/')) return '$url/';
     return url;
   }
 
   static String _locationTemplate() {
     return '''{
       "timestamp": "<%= timestamp %>",
+      "device_id": "<%= device.id %>",
       "coords": {
         "latitude": <%= latitude %>,
         "longitude": <%= longitude %>,
@@ -195,8 +197,7 @@ class Preferences {
       "activity": {
         "type": "<%= activity.type %>"
       },
-      "extras": {},
-      "_": "&id=${instance.getString(id)}&lat=<%= latitude %>&lon=<%= longitude %>&timestamp=<%= timestamp %>&"
+      "extras": {}
     }'''.split('\n').map((line) => line.trimLeft()).join();
   }
 }

@@ -32,6 +32,8 @@ class Preferences {
   static const String lastLatitude = 'lastLatitude';
   static const String lastLongitude = 'lastLongitude';
   static const String lastHeading = 'lastHeading';
+  static const String lastSyncTime = 'lastSyncTime';
+  static const String syncStatus = 'syncStatus';
 
   static Future<void> init() async {
     _initFuture ??= _createInstance();
@@ -40,11 +42,13 @@ class Preferences {
 
   static Future<void> _createInstance() async {
     instance = await SharedPreferencesWithCache.create(
-      sharedPreferencesOptions: Platform.isAndroid
-          ? SharedPreferencesAsyncAndroidOptions(
-              backend: SharedPreferencesAndroidBackendLibrary.SharedPreferences,
-            )
-          : SharedPreferencesOptions(),
+      sharedPreferencesOptions:
+          Platform.isAndroid
+              ? SharedPreferencesAsyncAndroidOptions(
+                backend:
+                    SharedPreferencesAndroidBackendLibrary.SharedPreferences,
+              )
+              : SharedPreferencesOptions(),
       cacheOptions: SharedPreferencesWithCacheOptions(
         allowList: {
           id,
@@ -68,7 +72,8 @@ class Preferences {
           lastLatitude,
           lastLongitude,
           lastHeading,
-          'lastSyncTime',
+          lastSyncTime,
+          syncStatus,
           'device_id_preference',
           'server_url_preference',
           'accuracy_preference',
@@ -130,49 +135,53 @@ class Preferences {
           'low' => bg.DesiredAccuracy.low,
           _ => bg.DesiredAccuracy.medium,
         },
-        distanceFilter: isHighestAccuracy
-            ? 0
-            : instance.getInt(distance)?.toDouble(),
-        locationUpdateInterval: Platform.isAndroid
-            ? (isHighestAccuracy
-                  ? 0
-                  : (locationUpdateInterval > 0
+        distanceFilter:
+            isHighestAccuracy ? 0 : instance.getInt(distance)?.toDouble(),
+        locationUpdateInterval:
+            Platform.isAndroid
+                ? (isHighestAccuracy
+                    ? 0
+                    : (locationUpdateInterval > 0
                         ? locationUpdateInterval
                         : null))
-            : null,
-        fastestLocationUpdateInterval: Platform.isAndroid
-            ? (isHighestAccuracy ? 0 : fastestLocationUpdateInterval)
-            : null,
+                : null,
+        fastestLocationUpdateInterval:
+            Platform.isAndroid
+                ? (isHighestAccuracy ? 0 : fastestLocationUpdateInterval)
+                : null,
         disableElasticity: true,
-        pausesLocationUpdatesAutomatically: Platform.isIOS
-            ? !(isHighestAccuracy || instance.getBool(stopDetection) == false)
-            : null,
+        pausesLocationUpdatesAutomatically:
+            Platform.isIOS
+                ? !(isHighestAccuracy ||
+                    instance.getBool(stopDetection) == false)
+                : null,
         showsBackgroundLocationIndicator: Platform.isIOS ? false : null,
       ),
       app: bg.AppConfig(
         enableHeadless: Platform.isAndroid ? true : null,
         stopOnTerminate: false,
         startOnBoot: Platform.isAndroid ? true : null,
-        heartbeatInterval: heartbeatInterval > 0
-            ? heartbeatInterval.toDouble()
-            : null,
+        heartbeatInterval:
+            heartbeatInterval > 0 ? heartbeatInterval.toDouble() : null,
         preventSuspend: Platform.isIOS ? (heartbeatInterval > 0) : null,
-        backgroundPermissionRationale: Platform.isAndroid
-            ? bg.PermissionRationale(
-                title:
-                    'Allow {applicationName} to access this device\'s location in the background',
-                message:
-                    'For reliable tracking, please enable {backgroundPermissionOptionLabel} location access.',
-                positiveAction: 'Change to {backgroundPermissionOptionLabel}',
-                negativeAction: 'Cancel',
-              )
-            : null,
-        notification: Platform.isAndroid
-            ? bg.Notification(
-                smallIcon: 'drawable/ic_stat_notify',
-                priority: bg.NotificationPriority.low,
-              )
-            : null,
+        backgroundPermissionRationale:
+            Platform.isAndroid
+                ? bg.PermissionRationale(
+                  title:
+                      'Allow {applicationName} to access this device\'s location in the background',
+                  message:
+                      'For reliable tracking, please enable {backgroundPermissionOptionLabel} location access.',
+                  positiveAction: 'Change to {backgroundPermissionOptionLabel}',
+                  negativeAction: 'Cancel',
+                )
+                : null,
+        notification:
+            Platform.isAndroid
+                ? bg.Notification(
+                  smallIcon: 'drawable/ic_stat_notify',
+                  priority: bg.NotificationPriority.low,
+                )
+                : null,
       ),
       http: bg.HttpConfig(
         autoSync: true,
@@ -226,9 +235,6 @@ class Preferences {
         "type": "<%= activity.type %>"
       },
       "extras": {}
-    }'''
-        .split('\n')
-        .map((line) => line.trimLeft())
-        .join();
+    }'''.split('\n').map((line) => line.trimLeft()).join();
   }
 }

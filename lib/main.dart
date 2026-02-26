@@ -18,12 +18,12 @@ import 'preferences.dart';
 import 'configuration_service.dart';
 
 final messengerKey = GlobalKey<ScaffoldMessengerState>();
-bool firebaseEnabled = true;
+bool firebaseEnabled = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Preferences.init();
-  firebaseEnabled = Preferences.instance.getBool(Preferences.firebase) ?? true;
+  firebaseEnabled = Preferences.instance.getBool(Preferences.firebase) ?? false;
 
   if (firebaseEnabled) {
     await Firebase.initializeApp();

@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:traccar_client/main.dart';
 import 'package:traccar_client/password_service.dart';
 import 'package:traccar_client/preferences.dart';
@@ -9,6 +11,7 @@ import 'package:flutter_background_geolocation/flutter_background_geolocation.da
     as bg;
 
 import 'l10n/app_localizations.dart';
+import 'location_cache.dart';
 import 'status_screen.dart';
 import 'settings_screen.dart';
 
@@ -87,6 +90,11 @@ class _HomeTabState extends State<_HomeTab> {
   double? _speed;
   double? _heading;
   bool _isLocationRequestInProgress = false;
+  Location? _lastLocation;
+  String _syncStatus = 'Unknown';
+  DateTime? _lastSyncTime;
+  int _interval = 300;
+  Timer? _timer;
 
   @override
   void initState() {
@@ -94,13 +102,33 @@ class _HomeTabState extends State<_HomeTab> {
     _initState();
   }
 
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
   void _initState() async {
     final state = await bg.BackgroundGeolocation.state;
     if (!mounted) return;
+    final lastSyncTimeStr = Preferences.instance.getString(
+      Preferences.lastSyncTime,
+    );
+    DateTime? lastSyncTime;
+    if (lastSyncTimeStr != null) {
+      lastSyncTime = DateTime.tryParse(lastSyncTimeStr);
+    }
+    final syncStatus =
+        Preferences.instance.getString(Preferences.syncStatus) ?? 'Unknown';
     setState(() {
       _trackingEnabled = state.enabled;
       _isMoving = state.isMoving;
+      _lastLocation = LocationCache.get();
+      _interval = Preferences.instance.getInt(Preferences.interval) ?? 300;
+      _lastSyncTime = lastSyncTime;
+      _syncStatus = syncStatus;
     });
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
     bg.BackgroundGeolocation.onEnabledChange((bool enabled) {
       if (mounted) setState(() => _trackingEnabled = enabled);
     });
@@ -114,6 +142,16 @@ class _HomeTabState extends State<_HomeTab> {
           _longitude = location.coords.longitude;
           _speed = location.coords.speed;
           _heading = location.coords.heading;
+          if (location.extras?['manual'] == true) {
+            _isLocationRequestInProgress = false;
+          }
+          _syncStatus = 'OK';
+          _lastSyncTime = DateTime.now();
+          Preferences.instance.setString(
+            Preferences.lastSyncTime,
+            _lastSyncTime!.toIso8601String(),
+          );
+          Preferences.instance.setString(Preferences.syncStatus, _syncStatus);
         });
       }
     });
@@ -127,19 +165,22 @@ class _HomeTabState extends State<_HomeTab> {
         if (!request.seen && context.mounted) {
           showDialog(
             context: context,
-            builder: (_) => AlertDialog(
-              scrollable: true,
-              content: Text(AppLocalizations.of(context)!.optimizationMessage),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    bg.DeviceSettings.show(request);
-                  },
-                  child: Text(AppLocalizations.of(context)!.okButton),
+            builder:
+                (_) => AlertDialog(
+                  scrollable: true,
+                  content: Text(
+                    AppLocalizations.of(context)!.optimizationMessage,
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        bg.DeviceSettings.show(request);
+                      },
+                      child: Text(AppLocalizations.of(context)!.okButton),
+                    ),
+                  ],
                 ),
-              ],
-            ),
           );
         }
       }
@@ -153,7 +194,7 @@ class _HomeTabState extends State<_HomeTab> {
       if (value) {
         try {
           final firebaseEnabled =
-              Preferences.instance.getBool(Preferences.firebase) ?? true;
+              Preferences.instance.getBool(Preferences.firebase) ?? false;
           if (firebaseEnabled) {
             FirebaseCrashlytics.instance.log('tracking_toggle_start');
           }
@@ -173,20 +214,22 @@ class _HomeTabState extends State<_HomeTab> {
             SnackBar(
               content: Text(error.message ?? error.code),
               duration: const Duration(seconds: 4),
-              action: isPermissionError
-                  ? SnackBarAction(
-                      label: AppLocalizations.of(context)!.settingsTitle,
-                      onPressed: () => AppSettings.openAppSettings(
-                        type: AppSettingsType.settings,
-                      ),
-                    )
-                  : null,
+              action:
+                  isPermissionError
+                      ? SnackBarAction(
+                        label: AppLocalizations.of(context)!.settingsTitle,
+                        onPressed:
+                            () => AppSettings.openAppSettings(
+                              type: AppSettingsType.settings,
+                            ),
+                      )
+                      : null,
             ),
           );
         }
       } else {
         final firebaseEnabled =
-            Preferences.instance.getBool(Preferences.firebase) ?? true;
+            Preferences.instance.getBool(Preferences.firebase) ?? false;
         if (firebaseEnabled) {
           FirebaseCrashlytics.instance.log('tracking_toggle_stop');
         }
@@ -197,18 +240,21 @@ class _HomeTabState extends State<_HomeTab> {
 
   Color _heroColor(ColorScheme cs) {
     if (!_trackingEnabled) return cs.surfaceContainerHighest;
+    if (_syncStatus != 'OK') return cs.errorContainer;
     if (_isMoving == true) return cs.secondaryContainer;
     return cs.primaryContainer;
   }
 
   Color _heroContentColor(ColorScheme cs) {
     if (!_trackingEnabled) return cs.onSurfaceVariant;
+    if (_syncStatus != 'OK') return cs.onErrorContainer;
     if (_isMoving == true) return cs.onSecondaryContainer;
     return cs.onPrimaryContainer;
   }
 
   String _heroStatusText() {
     if (!_trackingEnabled) return 'Tracking Inactive';
+    if (_syncStatus != 'OK') return 'Tracking Active · Sync Failed';
     if (_isMoving == true) return 'Tracking Active · Moving';
     return 'Tracking Active · Stationary';
   }
@@ -234,7 +280,7 @@ class _HomeTabState extends State<_HomeTab> {
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             color: _heroColor(cs),
-            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -256,9 +302,10 @@ class _HomeTabState extends State<_HomeTab> {
                 ),
                 const SizedBox(height: 16),
                 Semantics(
-                  label: _trackingEnabled
-                      ? 'Disable GPS tracking'
-                      : 'Enable GPS tracking',
+                  label:
+                      _trackingEnabled
+                          ? 'Disable GPS tracking'
+                          : 'Enable GPS tracking',
                   hint: 'Toggle GPS location tracking on or off',
                   child: Switch(
                     value: _trackingEnabled,
@@ -313,7 +360,7 @@ class _HomeTabState extends State<_HomeTab> {
                                   '${(_speed! * 3.6).toStringAsFixed(1)} km/h',
                             ),
                           ],
-                          if (_heading != null) ...[
+                          if (_heading != null && _heading! >= 0) ...[
                             const SizedBox(height: 12),
                             _InfoRow(
                               label: 'Heading',
@@ -321,6 +368,62 @@ class _HomeTabState extends State<_HomeTab> {
                                   '${_heading!.toStringAsFixed(0)}° ${_getHeadingDirection(_heading!)}',
                             ),
                           ],
+                          const SizedBox(height: 12),
+                          _InfoRow(label: 'Sync Status', value: _syncStatus),
+                          const SizedBox(height: 12),
+                          _InfoRow(
+                            label: 'Last Sync',
+                            value:
+                                _lastSyncTime != null
+                                    ? () {
+                                      final diff = DateTime.now().difference(
+                                        _lastSyncTime!,
+                                      );
+                                      return '${diff.inMinutes}:${(diff.inSeconds % 60).toString().padLeft(2, '0')}';
+                                    }()
+                                    : 'Never',
+                          ),
+                          const SizedBox(height: 12),
+                          _InfoRow(
+                            label: 'Next Sync',
+                            value:
+                                _lastSyncTime != null
+                                    ? () {
+                                      final nextTime = _lastSyncTime!.add(
+                                        Duration(seconds: _interval),
+                                      );
+                                      final diff = nextTime.difference(
+                                        DateTime.now(),
+                                      );
+                                      if (diff.isNegative) return 'Overdue';
+                                      return '${diff.inMinutes}:${(diff.inSeconds % 60).toString().padLeft(2, '0')}';
+                                    }()
+                                    : 'Unknown',
+                          ),
+                          const SizedBox(height: 12),
+                          _InfoRow(
+                            label: 'Sync Timer',
+                            value:
+                                _lastSyncTime != null
+                                    ? () {
+                                      final lastDiff = DateTime.now()
+                                          .difference(_lastSyncTime!);
+                                      final nextTime = _lastSyncTime!.add(
+                                        Duration(seconds: _interval),
+                                      );
+                                      final nextDiff = nextTime.difference(
+                                        DateTime.now(),
+                                      );
+                                      final lastStr =
+                                          '${lastDiff.inMinutes}:${(lastDiff.inSeconds % 60).toString().padLeft(2, '0')}';
+                                      final nextStr =
+                                          nextDiff.isNegative
+                                              ? 'Overdue'
+                                              : '${nextDiff.inMinutes}:${(nextDiff.inSeconds % 60).toString().padLeft(2, '0')}';
+                                      return 'Last $lastStr | Next $nextStr';
+                                    }()
+                                    : 'No sync yet',
+                          ),
                         ],
                       ),
                     ),
@@ -334,56 +437,37 @@ class _HomeTabState extends State<_HomeTab> {
                           hint: 'Get a single GPS location update',
                           button: true,
                           enabled: !_isLocationRequestInProgress,
-                          child: FilledButton.tonal(
-                            onPressed: _isLocationRequestInProgress
-                                ? null
-                                : () async {
-                                    setState(
-                                      () => _isLocationRequestInProgress = true,
-                                    );
-                                    try {
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor:
+                                  _isLocationRequestInProgress
+                                      ? Colors.orange
+                                      : null,
+                            ),
+                            child:
+                                _isLocationRequestInProgress
+                                    ? const Text("Sending...")
+                                    : Text(l10n.locationButton),
+                            onPressed:
+                                _isLocationRequestInProgress
+                                    ? null
+                                    : () async {
+                                      setState(
+                                        () =>
+                                            _isLocationRequestInProgress = true,
+                                      );
                                       await bg
                                           .BackgroundGeolocation.getCurrentPosition(
                                         samples: 1,
                                         persist: true,
                                         extras: {'manual': true},
                                       );
-                                    } on PlatformException catch (error) {
-                                      if (mounted) {
-                                        messengerKey.currentState?.showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              error.message ?? error.code,
-                                            ),
-                                            action: SnackBarAction(
-                                              label: 'Settings',
-                                              onPressed: () =>
-                                                  AppSettings.openAppSettings(
-                                                    type: AppSettingsType
-                                                        .settings,
-                                                  ),
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    } finally {
-                                      if (mounted) {
-                                        setState(
-                                          () => _isLocationRequestInProgress =
-                                              false,
-                                        );
-                                      }
-                                    }
-                                  },
-                            child: _isLocationRequestInProgress
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Text(l10n.locationButton),
+                                      setState(
+                                        () =>
+                                            _isLocationRequestInProgress =
+                                                false,
+                                      );
+                                    },
                           ),
                         ),
                       ),

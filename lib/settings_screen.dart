@@ -26,9 +26,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool advanced = false;
 
   String _schedulePreview() {
-    final entry = Preferences.instance
-        .getString(Preferences.scheduleEntry)
-        ?.trim();
+    final entry =
+        Preferences.instance.getString(Preferences.scheduleEntry)?.trim();
     if (entry == null || entry.isEmpty) {
       return AppLocalizations.of(context)!.scheduleUnsetLabel;
     }
@@ -43,29 +42,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        scrollable: true,
-        title: Text(AppLocalizations.of(context)!.scheduleEntryLabel),
-        content: TextField(
-          controller: controller,
-          minLines: 3,
-          maxLines: 5,
-          keyboardType: TextInputType.multiline,
-          decoration: InputDecoration(
-            hintText: AppLocalizations.of(context)!.scheduleEntryHint,
+      builder:
+          (context) => AlertDialog(
+            scrollable: true,
+            title: Text(AppLocalizations.of(context)!.scheduleEntryLabel),
+            content: TextField(
+              controller: controller,
+              minLines: 3,
+              maxLines: 5,
+              keyboardType: TextInputType.multiline,
+              decoration: InputDecoration(
+                hintText: AppLocalizations.of(context)!.scheduleEntryHint,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(AppLocalizations.of(context)!.cancelButton),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, controller.text),
+                child: Text(AppLocalizations.of(context)!.saveButton),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppLocalizations.of(context)!.cancelButton),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: Text(AppLocalizations.of(context)!.saveButton),
-          ),
-        ],
-      ),
     );
     if (result != null) {
       final trimmed = result.trim();
@@ -112,36 +112,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _editSetting(String title, String key, bool isInt) async {
-    final initialValue = isInt
-        ? Preferences.instance.getInt(key)?.toString() ?? '0'
-        : Preferences.instance.getString(key) ?? '';
+    final initialValue =
+        isInt
+            ? Preferences.instance.getInt(key)?.toString() ?? '0'
+            : Preferences.instance.getString(key) ?? '';
 
     final controller = TextEditingController(text: initialValue);
     final errorMessage = AppLocalizations.of(context)!.invalidValue;
 
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        scrollable: true,
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          keyboardType: isInt ? TextInputType.number : TextInputType.text,
-          inputFormatters: isInt
-              ? [FilteringTextInputFormatter.digitsOnly]
-              : [],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppLocalizations.of(context)!.cancelButton),
+      builder:
+          (context) => AlertDialog(
+            scrollable: true,
+            title: Text(title),
+            content: TextField(
+              controller: controller,
+              keyboardType: isInt ? TextInputType.number : TextInputType.text,
+              inputFormatters:
+                  isInt ? [FilteringTextInputFormatter.digitsOnly] : [],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(AppLocalizations.of(context)!.cancelButton),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, controller.text),
+                child: Text(AppLocalizations.of(context)!.saveButton),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: Text(AppLocalizations.of(context)!.saveButton),
-          ),
-        ],
-      ),
     );
 
     if (result != null && result.isNotEmpty) {
@@ -176,26 +177,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final controller = TextEditingController();
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        scrollable: true,
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            labelText: AppLocalizations.of(context)!.passwordLabel,
+      builder:
+          (context) => AlertDialog(
+            scrollable: true,
+            content: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.passwordLabel,
+              ),
+              obscureText: true,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(AppLocalizations.of(context)!.cancelButton),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(AppLocalizations.of(context)!.saveButton),
+              ),
+            ],
           ),
-          obscureText: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(AppLocalizations.of(context)!.cancelButton),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(AppLocalizations.of(context)!.saveButton),
-          ),
-        ],
-      ),
     );
     if (result == true) {
       await PasswordService.setPassword(controller.text);
@@ -231,17 +233,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       onTap: () async {
         final selectedAccuracy = await showDialog<String>(
           context: context,
-          builder: (context) => SimpleDialog(
-            title: Text(AppLocalizations.of(context)!.accuracyLabel),
-            children: accuracyOptions
-                .map(
-                  (option) => SimpleDialogOption(
-                    child: Text(_getAccuracyLabel(option)),
-                    onPressed: () => Navigator.pop(context, option),
-                  ),
-                )
-                .toList(),
-          ),
+          builder:
+              (context) => SimpleDialog(
+                title: Text(AppLocalizations.of(context)!.accuracyLabel),
+                children:
+                    accuracyOptions
+                        .map(
+                          (option) => SimpleDialogOption(
+                            child: Text(_getAccuracyLabel(option)),
+                            onPressed: () => Navigator.pop(context, option),
+                          ),
+                        )
+                        .toList(),
+              ),
         );
         if (selectedAccuracy != null) {
           await Preferences.instance.setString(
@@ -391,7 +395,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             SwitchListTile(
               title: const Text('Firebase'),
               subtitle: const Text('Crashlytics and push notifications'),
-              value: Preferences.instance.getBool(Preferences.firebase) ?? true,
+              value:
+                  Preferences.instance.getBool(Preferences.firebase) ?? false,
               onChanged: (value) async {
                 await Preferences.instance.setBool(Preferences.firebase, value);
                 setState(() {});
